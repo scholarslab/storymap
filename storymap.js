@@ -9,11 +9,10 @@
             breakpointPos: '33.333%',
             createMap: function () {
                 // create a map in the "map" div, set the view to a given place and zoom
-                var map = L.map('map').setView([65, 18], 5);
+                var map = L.map('map').setView([28, 0], 2);
 
-                // add an OpenStreetMap tile layer
-                L.tileLayer('http://{s}.tile.osm.org/{z}/{x}/{y}.png', {
-                    attribution: '&copy; <a href="http://osm.org/copyright">OpenStreetMap</a> contributors'
+                L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/World_Topo_Map/MapServer/tile/{z}/{y}/{x}', {
+	                 attribution: 'Tiles &copy; Esri &mdash; Esri, DeLorme, NAVTEQ, TomTom, Intermap, iPC, USGS, FAO, NPS, NRCAN, GeoBase, Kadaster NL, Ordnance Survey, Esri Japan, METI, Esri China (Hong Kong), and the GIS User Community'
                 }).addTo(map);
 
                 return map;
@@ -77,7 +76,7 @@
             });
         }
 
-        var makeStoryMap = function (element, markers) {
+        var makeStoryMap = function (element, markers, paths) {
 
             var topElem = $('<div class="breakpoint-current"></div>')
                 .css('top', settings.breakpointPos);
@@ -100,28 +99,46 @@
             watchHighlight(element, searchfor, top);
 
             var map = settings.createMap();
+            map.on('zoomend', onMapZoomEnd);
+            map.on('zoomstart', onMapZoomStart);
 
             var initPoint = map.getCenter();
             var initZoom = map.getZoom();
 
             var fg = L.featureGroup().addTo(map);
+            var pathgroup = L.featureGroup().addTo(map);
+            var zoomTo = map.getZoom();
+
+            for (var i = 0; i < paths.length ; i++) {
+              pathgroup.addLayer(paths[i]);
+            }
+
+            function onMapZoomStart(e) {
+              if (zoomTo - map.getZoom() > 4){
+                map.removeLayer(pathgroup);
+              }
+            }
+
+            function onMapZoomEnd(e) {
+              map.addLayer(pathgroup);
+            }
 
             function showMapView(key) {
 
                 fg.clearLayers();
                 if (key === 'overview') {
-                    map.setView(initPoint, initZoom, true);
+                    zoomTo = initZoom;
+                    map.flyTo(initPoint, initZoom, true);
                 } else if (markers[key]) {
                     var marker = markers[key];
                     var layer = marker.layer;
                     if(typeof layer !== 'undefined'){
                       fg.addLayer(layer);
                     };
+                    zoomTo = marker.zoom;
                     fg.addLayer(L.marker([marker.lat, marker.lon]));
-
-                    map.setView([marker.lat, marker.lon], marker.zoom, 1);
+                    map.flyTo([marker.lat, marker.lon], marker.zoom);
                 }
-
             }
 
             paragraphs.on('viewing', function () {
@@ -129,7 +146,7 @@
             });
         };
 
-        makeStoryMap(this, settings.markers);
+        makeStoryMap(this, settings.markers, settings.paths);
 
         return this;
     }
